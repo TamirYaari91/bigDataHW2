@@ -2,18 +2,21 @@ package bigdatacourse.hw2.studentcode;
 
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOException;
-import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 
 import bigdatacourse.hw2.HW2API;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -24,15 +27,17 @@ public class HW2StudentAnswer implements HW2API {
     public static final String ITEM_DOES_NOT_EXIST = "not exists";
     public static final int    NUM_OF_THREADS      = 100; // TODO - change to 250?
 
-    public static final String PATH_TO_ITEMS   = "/Users/tamiry/Desktop/bigDataHW2/data/meta_Office_Products.json";
-    // TODO - delete when done
-    public static final String PATH_TO_REVIEWS = "/Users/tamiry/Desktop/bigDataHW2/data/reviews_Office_Products.json";
-    // TODO - delet when done
+    // column names consts
+    public static final String ASIN        = "asin";
+    public static final String TITLE       = "title";
+    public static final String IMAGE       = "image";
+    public static final String CATEGORIES  = "categories";
+    public static final String DESCRIPTION = "description";
+
 
     // CQL stuff
     public static final String       TABLE_ITEMS      = "items";
-    public static final List<String> TABLE_ITEMS_KEYS =
-            Arrays.asList("asin", "title", "image", "categories", "description");
+    public static final List<String> TABLE_ITEMS_KEYS = Arrays.asList(ASIN, TITLE, IMAGE, CATEGORIES, DESCRIPTION);
 
     public static final String TABLE_USER_REVIEWS = "user_reviews";
     public static final String TABLE_ITEM_REVIEWS = "item_reviews";
@@ -45,8 +50,8 @@ public class HW2StudentAnswer implements HW2API {
 
 
     public static final String CQL_CREATE_TABLE_ITEMS =
-            "CREATE TABLE " + TABLE_ITEMS + "(" + "asin text," + "title text," + "image text," + "categories text," +
-            "description text," + "PRIMARY KEY (asin)" + ") ";
+            "CREATE TABLE " + TABLE_ITEMS + "(" + "asin text," + "title text," + "image text," +
+            "categories set<text>," + "description text," + "PRIMARY KEY (asin)" + ") ";
 
     // cassandra session
     private CqlSession session;
@@ -101,32 +106,32 @@ public class HW2StudentAnswer implements HW2API {
     @Override
     public void loadItems(String pathItemsFile) throws Exception {
         BufferedReader reader;
+        reader = new BufferedReader(new FileReader(pathItemsFile));
+        int count = 0;
 
-        try {
-            reader = new BufferedReader(new FileReader(pathItemsFile));
-            String     itemString = reader.readLine();
-            JSONObject itemJsonObject;
+        String     itemString = reader.readLine();
+        JSONObject itemJsonObject;
 
-            while (itemString != null) {
-                itemJsonObject = new JSONObject(itemString);
-                fillItemsJson(itemJsonObject);
-                BoundStatement bstmtAddToItems = pstmtAddToItems.bind().setString(0, itemJsonObject.getString("asin"))
-                                                                .setString(1, itemJsonObject.getString("title"))
-                                                                .setString(2, itemJsonObject.getString("image"))
-                                                                .setString(3, itemJsonObject.getString("categories"))
-                                                                .setString(4, itemJsonObject.getString("description"));
-                session.execute(bstmtAddToItems);
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_OF_THREADS);
 
-                // read next line
-                itemString = reader.readLine();
-                break; // in order to read only first line since this is a test
-            }
+        while (itemString != null) {
+            itemJsonObject = new JSONObject(itemString);
+            fillItemsJson(itemJsonObject);
 
-            reader.close();
+            JSONObject finalItemJsonObject = itemJsonObject;
+            executor.execute(() -> {
+                insertToItems(session, pstmtAddToItems, finalItemJsonObject);
+            });
+            count++;
+            System.out.println(count);
+
+            itemString = reader.readLine();
         }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
+
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+
+        reader.close();
     }
 
     @Override
@@ -137,21 +142,23 @@ public class HW2StudentAnswer implements HW2API {
 
     @Override
     public void item(String asin) {
-        //TODO: implement this function
-        System.out.println("TODO: implement this function...");
+        BoundStatement bstmtSelectFromItems = pstmtSelectFromItems.bind().setString(0, asin);
+        ResultSet      rs                   = session.execute(bstmtSelectFromItems);
+        Row            row                  = rs.one();
+        if (row != null) {
+            while (row != null) {
+                System.out.println("asin: " + row.getString(ASIN));
+                System.out.println("title: " + row.getString(TITLE));
+                System.out.println("image: " + row.getString(IMAGE));
+                System.out.println("categories: " + row.getSet(CATEGORIES, String.class));
+                System.out.println("description: " + row.getString(DESCRIPTION));
 
-        // required format - example for asin B005QB09TU
-        System.out.println("asin: " + "B005QB09TU");
-        System.out.println("title: " + "Circa Action Method Notebook");
-        System.out.println("image: " + "http://ecx.images-amazon.com/images/I/41ZxT4Opx3L._SY300_.jpg");
-        System.out.println("categories: " + new HashSet<String>(
-                Arrays.asList("Notebooks & Writing Pads", "Office & School Supplies", "Office Products", "Paper")));
-        System.out.println("description: " +
-                           "Circa + Behance = Productivity. The minute-to-minute flexibility of Circa note-taking meets the organizational power of the Action Method by Behance. The result is enhanced productivity, so you'll formulate strategies and achieve objectives even more efficiently with this Circa notebook and project planner. Read Steve's blog on the Behance/Levenger partnership Customize with your logo. Corporate pricing available. Please call 800-357-9991.");
-        ;
-
-        // required format - if the asin does not exists return this value
-        System.out.println("not exists");
+                row = rs.one();
+            }
+        }
+        else {
+            System.out.println(ITEM_DOES_NOT_EXIST);
+        }
     }
 
 
@@ -202,42 +209,48 @@ public class HW2StudentAnswer implements HW2API {
 
     private static void fillItemsJson(JSONObject jsonObject) {
         for (String key : TABLE_ITEMS_KEYS) {
-            try {
-                Object value = jsonObject.get(key);
-                jsonObject.put(key, value.toString());
+
+            if (key.equals("categories")) {
+                try {
+                    jsonObject.get(key);
+                }
+                catch (JSONException e) {
+                    jsonObject.put(key, new HashSet<>());
+                }
             }
-            catch (JSONException e) {
-                jsonObject.put(key, NOT_AVAILABLE_VALUE);
+            else {
+                try {
+                    jsonObject.get(key);
+                }
+                catch (JSONException e) {
+                    jsonObject.put(key, NOT_AVAILABLE_VALUE);
+                }
             }
         }
     }
 
+    private static Set<String> jsonArrayToStringSet(JSONArray jsonArray) {
+        Set<String> retVal = new HashSet<>();
 
-    public static void main(String[] args) {
-        //        BufferedReader reader;
-        //
-        //        try {
-        //            reader = new BufferedReader(new FileReader(PATH_TO_ITEMS));
-        //            String     itemString = reader.readLine();
-        //            JSONObject itemJsonObject;
-        //
-        //            while (itemString != null) {
-        //                itemJsonObject = new JSONObject(itemString);
-        //                fillJsonIfNull(itemJsonObject);
-        //                System.out.println(itemString);
-        //                System.out.println(itemJsonObject);
-        //                System.out.println(itemJsonObject.getString("asin"));
-        //                // read next line
-        //                itemString = reader.readLine();
-        //                break; // in order to read only first line since this is a test
-        //            }
-        //
-        //            reader.close();
-        //        }
-        //        catch (IOException e) {
-        //            e.printStackTrace();
-        //        }
+        if (jsonArray != null) {
+
+            for (int i = 0; i < jsonArray.length(); i++) {
+                retVal.add(jsonArray.get(i).toString());
+            }
+        }
+
+        return retVal;
     }
 
+    public static void insertToItems(CqlSession session, PreparedStatement pstmt, JSONObject jsonObject) {
+
+        BoundStatement bstmtAddToItems =
+                pstmt.bind().setString(ASIN, jsonObject.getString(ASIN)).setString(TITLE, jsonObject.getString(TITLE))
+                     .setString(IMAGE, jsonObject.getString(IMAGE))
+                     .setSet(CATEGORIES, jsonArrayToStringSet(jsonObject.getJSONArray(CATEGORIES).getJSONArray(0)),
+                             String.class).setString(DESCRIPTION, jsonObject.getString(DESCRIPTION));
+
+        session.execute(bstmtAddToItems);
+    }
 
 }

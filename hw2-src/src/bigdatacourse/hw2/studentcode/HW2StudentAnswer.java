@@ -22,37 +22,6 @@ import org.json.JSONObject;
 
 public class HW2StudentAnswer implements HW2API {
 
-    // general consts
-    public static final String NOT_AVAILABLE_VALUE = "na";
-    public static final String ITEM_DOES_NOT_EXIST = "not exists";
-    public static final int    NUM_OF_THREADS      = 100; // TODO - change to 250?
-
-    // column names consts
-    public static final String ASIN        = "asin";
-    public static final String TITLE       = "title";
-    public static final String IMAGE       = "image";
-    public static final String CATEGORIES  = "categories";
-    public static final String DESCRIPTION = "description";
-
-
-    // CQL stuff
-    public static final String       TABLE_ITEMS      = "items";
-    public static final List<String> TABLE_ITEMS_KEYS = Arrays.asList(ASIN, TITLE, IMAGE, CATEGORIES, DESCRIPTION);
-
-    public static final String TABLE_USER_REVIEWS = "user_reviews";
-    public static final String TABLE_ITEM_REVIEWS = "item_reviews";
-
-
-    public static final String CQL_ITEMS_INSERT =
-            "INSERT INTO " + TABLE_ITEMS + "(asin, title, image, categories, description) VALUES(?, ?, ?, ?, ?)";
-
-    public static final String CQL_ITEMS_SELECT = "SELECT * FROM " + TABLE_ITEMS + " WHERE asin = ?";
-
-
-    public static final String CQL_CREATE_TABLE_ITEMS =
-            "CREATE TABLE " + TABLE_ITEMS + "(" + "asin text," + "title text," + "image text," +
-            "categories set<text>," + "description text," + "PRIMARY KEY (asin)" + ") ";
-
     // cassandra session
     private CqlSession session;
 
@@ -93,14 +62,14 @@ public class HW2StudentAnswer implements HW2API {
 
     @Override
     public void createTables() {
-        session.execute(CQL_CREATE_TABLE_ITEMS);
-        System.out.println("created table: " + TABLE_ITEMS);
+        session.execute(Constants.CREATE_TABLE_ITEMS);
+        System.out.println("created table: " + Constants.TABLE_ITEMS);
     }
 
     @Override
     public void initialize() {
-        pstmtAddToItems = session.prepare(CQL_ITEMS_INSERT);
-        pstmtSelectFromItems = session.prepare(CQL_ITEMS_SELECT);
+        pstmtAddToItems = session.prepare(Constants.ITEMS_INSERT);
+        pstmtSelectFromItems = session.prepare(Constants.ITEMS_SELECT);
     }
 
     @Override
@@ -112,7 +81,7 @@ public class HW2StudentAnswer implements HW2API {
         String     itemString = reader.readLine();
         JSONObject itemJsonObject;
 
-        ExecutorService executor = Executors.newFixedThreadPool(NUM_OF_THREADS);
+        ExecutorService executor = Executors.newFixedThreadPool(Constants.NUM_OF_THREADS);
 
         while (itemString != null) {
             itemJsonObject = new JSONObject(itemString);
@@ -129,7 +98,7 @@ public class HW2StudentAnswer implements HW2API {
         }
 
         executor.shutdown();
-        executor.awaitTermination(10, TimeUnit.SECONDS);
+        executor.awaitTermination(1, TimeUnit.SECONDS);
 
         reader.close();
     }
@@ -147,17 +116,17 @@ public class HW2StudentAnswer implements HW2API {
         Row            row                  = rs.one();
         if (row != null) {
             while (row != null) {
-                System.out.println("asin: " + row.getString(ASIN));
-                System.out.println("title: " + row.getString(TITLE));
-                System.out.println("image: " + row.getString(IMAGE));
-                System.out.println("categories: " + row.getSet(CATEGORIES, String.class));
-                System.out.println("description: " + row.getString(DESCRIPTION));
+                System.out.println("asin: " + row.getString(Constants.ASIN));
+                System.out.println("title: " + row.getString(Constants.TITLE));
+                System.out.println("image: " + row.getString(Constants.IMAGE));
+                System.out.println("categories: " + row.getSet(Constants.CATEGORIES, String.class));
+                System.out.println("description: " + row.getString(Constants.DESCRIPTION));
 
                 row = rs.one();
             }
         }
         else {
-            System.out.println(ITEM_DOES_NOT_EXIST);
+            System.out.println(Constants.ITEM_DOES_NOT_EXIST);
         }
     }
 
@@ -208,7 +177,7 @@ public class HW2StudentAnswer implements HW2API {
     }
 
     private static void fillItemsJson(JSONObject jsonObject) {
-        for (String key : TABLE_ITEMS_KEYS) {
+        for (String key : Constants.TABLE_ITEMS_KEYS) {
 
             if (key.equals("categories")) {
                 try {
@@ -223,7 +192,7 @@ public class HW2StudentAnswer implements HW2API {
                     jsonObject.get(key);
                 }
                 catch (JSONException e) {
-                    jsonObject.put(key, NOT_AVAILABLE_VALUE);
+                    jsonObject.put(key, Constants.NOT_AVAILABLE_VALUE);
                 }
             }
         }
@@ -244,11 +213,14 @@ public class HW2StudentAnswer implements HW2API {
 
     public static void insertToItems(CqlSession session, PreparedStatement pstmt, JSONObject jsonObject) {
 
-        BoundStatement bstmtAddToItems =
-                pstmt.bind().setString(ASIN, jsonObject.getString(ASIN)).setString(TITLE, jsonObject.getString(TITLE))
-                     .setString(IMAGE, jsonObject.getString(IMAGE))
-                     .setSet(CATEGORIES, jsonArrayToStringSet(jsonObject.getJSONArray(CATEGORIES).getJSONArray(0)),
-                             String.class).setString(DESCRIPTION, jsonObject.getString(DESCRIPTION));
+        BoundStatement bstmtAddToItems = pstmt.bind().setString(Constants.ASIN, jsonObject.getString(Constants.ASIN))
+                                              .setString(Constants.TITLE, jsonObject.getString(Constants.TITLE))
+                                              .setString(Constants.IMAGE, jsonObject.getString(Constants.IMAGE))
+                                              .setSet(Constants.CATEGORIES, jsonArrayToStringSet(
+                                                              jsonObject.getJSONArray(Constants.CATEGORIES).getJSONArray(0)),
+                                                      String.class).setString(Constants.DESCRIPTION,
+                                                                              jsonObject.getString(
+                                                                                      Constants.DESCRIPTION));
 
         session.execute(bstmtAddToItems);
     }

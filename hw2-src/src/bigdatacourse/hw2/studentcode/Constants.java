@@ -13,7 +13,7 @@ public class Constants {
     // Column Names
     public static final String ASIN          = "asin";
     public static final String TITLE         = "title";
-    public static final String IMAGE         = "image";
+    public static final String IMAGE         = "imUrl";
     public static final String CATEGORIES    = "categories";
     public static final String DESCRIPTION   = "description";
     public static final String REVIEWER_ID   = "reviewerID";

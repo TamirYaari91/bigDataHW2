@@ -1,6 +1,7 @@
 package bigdatacourse.hw2.studentcode;
 
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.io.BufferedReader;
@@ -29,6 +30,10 @@ public class HW2StudentAnswer implements HW2API {
     // prepared statements
     private PreparedStatement pstmtAddToItems;
     private PreparedStatement pstmtSelectFromItems;
+    private PreparedStatement pstmtAddToReviewsByItem;
+    private PreparedStatement pstmtSelectFromReviewsByItem;
+    private PreparedStatement pstmtAddToReviewsByUser;
+    private PreparedStatement pstmtSelectFromReviewsByUser;
 
 
     @Override
@@ -64,12 +69,26 @@ public class HW2StudentAnswer implements HW2API {
     public void createTables() {
         session.execute(Constants.CREATE_TABLE_ITEMS);
         System.out.println("created table: " + Constants.TABLE_ITEMS);
+
+        session.execute(Constants.CREATE_TABLE_REVIEWS_BY_ITEM);
+        System.out.println("created table: " + Constants.TABLE_REVIEWS_BY_ITEM);
+
+        session.execute(Constants.CREATE_TABLE_REVIEWS_BY_USER);
+        System.out.println("created table: " + Constants.TABLE_REVIEWS_BY_USER);
+
     }
 
     @Override
     public void initialize() {
         pstmtAddToItems = session.prepare(Constants.ITEMS_INSERT);
         pstmtSelectFromItems = session.prepare(Constants.ITEMS_SELECT);
+
+        pstmtAddToReviewsByItem = session.prepare(Constants.REVIEWS_BY_ITEM_INSERT);
+        pstmtSelectFromReviewsByItem = session.prepare(Constants.REVIEWS_BY_ITEM_SELECT);
+
+        pstmtAddToReviewsByUser = session.prepare(Constants.REVIEWS_BY_USER_INSERT);
+        pstmtSelectFromReviewsByUser = session.prepare(Constants.REVIEWS_BY_USER_SELECT);
+
     }
 
     @Override
@@ -105,8 +124,34 @@ public class HW2StudentAnswer implements HW2API {
 
     @Override
     public void loadReviews(String pathReviewsFile) throws Exception {
-        //TODO: implement this function
-        System.out.println("TODO: implement this function...");
+        BufferedReader reader;
+        reader = new BufferedReader(new FileReader(pathReviewsFile));
+        int count = 0;
+
+        String     reviewString = reader.readLine();
+        JSONObject reviewJsonObject;
+
+        ExecutorService executor = Executors.newFixedThreadPool(Constants.NUM_OF_THREADS);
+
+        while (reviewString != null) {
+            reviewJsonObject = new JSONObject(reviewString);
+            fillReviewJson(reviewJsonObject);
+
+            JSONObject finalReviewJsonObject = reviewJsonObject;
+            executor.execute(() -> {
+                insertToReviews(session, pstmtAddToReviewsByItem, finalReviewJsonObject);
+                insertToReviews(session, pstmtAddToReviewsByUser, finalReviewJsonObject);
+            });
+            count++;
+            System.out.println(count);
+
+            reviewString = reader.readLine();
+        }
+
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.SECONDS);
+
+        reader.close();
     }
 
     @Override
@@ -133,29 +178,16 @@ public class HW2StudentAnswer implements HW2API {
 
     @Override
     public void userReviews(String reviewerID) {
-        //TODO: implement this function
-        System.out.println("TODO: implement this function...");
-
-
-        // required format - example for reviewerID A17OJCRPMYWXWV
-        System.out.println("time: " + Instant.ofEpochSecond(1362614400) + ", asin: " + "B005QDG2AI" + ", reviewerID: " +
-                           "A17OJCRPMYWXWV" + ", reviewerName: " + "Old Flour Child" + ", rating: " + 5 +
-                           ", summary: " + "excellent quality" + ", reviewText: " +
-                           "These cartridges are excellent .  I purchased them for the office where I work and they perform  like a dream.  They are a fraction of the price of the brand name cartridges.  I will order them again!");
-
-        System.out.println("time: " + Instant.ofEpochSecond(1360108800) + ", asin: " + "B003I89O6W" + ", reviewerID: " +
-                           "A17OJCRPMYWXWV" + ", reviewerName: " + "Old Flour Child" + ", rating: " + 5 +
-                           ", summary: " + "Checkbook Cover" + ", reviewText: " +
-                           "Purchased this for the owner of a small automotive repair business I work for.  The old one was being held together with duct tape.  When I saw this one on Amazon (where I look for almost everything first) and looked at the price, I knew this was the one.  Really nice and very sturdy.");
-
-        System.out.println("total reviews: " + 2);
+        BoundStatement bstmtSelectFromReviewsByUser = pstmtSelectFromReviewsByUser.bind().setString(0, reviewerID);
+        ResultSet      rs                           = session.execute(bstmtSelectFromReviewsByUser);
+        handleReviewsQuery(rs);
     }
 
     @Override
     public void itemReviews(String asin) {
-        //TODO: implement this function
-        System.out.println("TODO: implement this function...");
-
+        BoundStatement bstmtSelectFromReviewsByItem = pstmtSelectFromReviewsByItem.bind().setString(0, asin);
+        ResultSet      rs                           = session.execute(bstmtSelectFromReviewsByItem);
+        handleReviewsQuery(rs);
 
         // required format - example for asin B005QDQXGQ
         System.out.println("time: " + Instant.ofEpochSecond(1391299200) + ", asin: " + "B005QDQXGQ" + ", reviewerID: " +
@@ -175,6 +207,29 @@ public class HW2StudentAnswer implements HW2API {
 
         System.out.println("total reviews: " + 3);
     }
+
+    private void handleReviewsQuery(ResultSet rs) {
+        Row row          = rs.one();
+        int numOfReviews = 0;
+        if (row != null) {
+            while (row != null) {
+                System.out.println("time: " + Instant.ofEpochSecond(row.getInt(Constants.TIME)) + ", " + "asin: " +
+                                   row.getString(Constants.ASIN) + ", " + "reviewerID: " +
+                                   row.getString(Constants.REVIEWER_ID) + ", " + "reviewerName: " +
+                                   row.getString(Constants.REVIEWER_NAME) + ", " + "rating: " +
+                                   row.getInt(Constants.RATING) + ", " + "summary: " +
+                                   row.getString(Constants.SUMMARY) + ", " + "reviewText: " +
+                                   row.getString(Constants.REVIEW_TEXT));
+                row = rs.one();
+                numOfReviews++;
+            }
+        }
+        else {
+            System.out.println(Constants.ITEM_DOES_NOT_EXIST);
+        }
+        System.out.println("total reviews: " + numOfReviews);
+    }
+
 
     private static void fillItemsJson(JSONObject jsonObject) {
         for (String key : Constants.TABLE_ITEMS_KEYS) {
@@ -196,6 +251,27 @@ public class HW2StudentAnswer implements HW2API {
                 }
             }
         }
+    }
+
+    private static void fillReviewJson(JSONObject jsonObject) {
+        for (String key : Constants.TABLE_REVIEWS_BY_USER_KEYS) {
+            try {
+                jsonObject.get(key);
+            }
+            catch (JSONException e) {
+                jsonObject.put(key, Constants.NOT_AVAILABLE_VALUE);
+            }
+        }
+
+        for (String key : Constants.TABLE_REVIEWS_BY_ITEM_KEYS) {
+            try {
+                jsonObject.get(key);
+            }
+            catch (JSONException e) {
+                jsonObject.put(key, Constants.NOT_AVAILABLE_VALUE);
+            }
+        }
+
     }
 
     private static Set<String> jsonArrayToStringSet(JSONArray jsonArray) {
@@ -224,5 +300,24 @@ public class HW2StudentAnswer implements HW2API {
 
         session.execute(bstmtAddToItems);
     }
+
+    public static void insertToReviews(CqlSession session, PreparedStatement pstmt, JSONObject jsonObject) {
+
+        BoundStatement bstmtAddToReviewsByUser = pstmt.bind().setInt(Constants.TIME, jsonObject.getInt(Constants.TIME))
+                                                      .setString(Constants.ASIN, jsonObject.getString(Constants.ASIN))
+                                                      .setString(Constants.REVIEWER_ID,
+                                                                 jsonObject.getString(Constants.REVIEWER_ID))
+                                                      .setString(Constants.REVIEWER_NAME,
+                                                                 jsonObject.getString(Constants.REVIEWER_NAME))
+                                                      .setInt(Constants.RATING, jsonObject.getInt(Constants.RATING))
+                                                      .setString(Constants.SUMMARY,
+                                                                 jsonObject.getString(Constants.SUMMARY))
+                                                      .setString(Constants.REVIEW_TEXT,
+                                                                 jsonObject.getString(Constants.REVIEW_TEXT))
+                                                      .setTimeout(Duration.ofSeconds(30));
+
+        session.execute(bstmtAddToReviewsByUser);
+    }
+
 
 }

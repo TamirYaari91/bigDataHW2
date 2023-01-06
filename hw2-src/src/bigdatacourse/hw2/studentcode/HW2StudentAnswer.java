@@ -26,7 +26,6 @@ public class HW2StudentAnswer implements HW2API {
     // cassandra session
     private CqlSession session;
 
-
     // prepared statements
     private PreparedStatement pstmtAddToItems;
     private PreparedStatement pstmtSelectFromItems;
@@ -175,7 +174,6 @@ public class HW2StudentAnswer implements HW2API {
         }
     }
 
-
     @Override
     public void userReviews(String reviewerID) {
         BoundStatement bstmtSelectFromReviewsByUser = pstmtSelectFromReviewsByUser.bind().setString(0, reviewerID);
@@ -188,24 +186,6 @@ public class HW2StudentAnswer implements HW2API {
         BoundStatement bstmtSelectFromReviewsByItem = pstmtSelectFromReviewsByItem.bind().setString(0, asin);
         ResultSet      rs                           = session.execute(bstmtSelectFromReviewsByItem);
         handleReviewsQuery(rs);
-
-        // required format - example for asin B005QDQXGQ
-        System.out.println("time: " + Instant.ofEpochSecond(1391299200) + ", asin: " + "B005QDQXGQ" + ", reviewerID: " +
-                           "A1I5J5RUJ5JB4B" + ", reviewerName: " + "T. Taylor \"jediwife3\"" + ", rating: " + 5 +
-                           ", summary: " + "Play and Learn" + ", reviewText: " +
-                           "The kids had a great time doing hot potato and then having to answer a question if they got stuck with the &#34;potato&#34;. The younger kids all just sat around turnin it to read it.");
-
-        System.out.println("time: " + Instant.ofEpochSecond(1390694400) + ", asin: " + "B005QDQXGQ" + ", reviewerID: " +
-                           "AF2CSZ8IP8IPU" + ", reviewerName: " + "Corey Valentine \"sue\"" + ", rating: " + 1 +
-                           ", summary: " + "Not good" + ", reviewText: " +
-                           "This Was not worth 8 dollars would not recommend to others to buy for kids at that price do not buy");
-
-        System.out.println("time: " + Instant.ofEpochSecond(1388275200) + ", asin: " + "B005QDQXGQ" + ", reviewerID: " +
-                           "A27W10NHSXI625" + ", reviewerName: " + "Beth" + ", rating: " + 2 + ", summary: " +
-                           "Way overpriced for a beach ball" + ", reviewText: " +
-                           "It was my own fault, I guess, for not thoroughly reading the description, but this is just a blow-up beach ball.  For that, I think it was very overpriced.  I thought at least I was getting one of those pre-inflated kickball-type balls that you find in the giant bins in the chain stores.  This did have a page of instructions for a few different games kids can play.  Still, I think kids know what to do when handed a ball, and there's a lot less you can do with a beach ball than a regular kickball, anyway.");
-
-        System.out.println("total reviews: " + 3);
     }
 
     private void handleReviewsQuery(ResultSet rs) {
@@ -229,7 +209,6 @@ public class HW2StudentAnswer implements HW2API {
         }
         System.out.println("total reviews: " + numOfReviews);
     }
-
 
     private static void fillItemsJson(JSONObject jsonObject) {
         for (String key : Constants.TABLE_ITEMS_KEYS) {
@@ -318,6 +297,4 @@ public class HW2StudentAnswer implements HW2API {
 
         session.execute(bstmtAddToReviewsByUser);
     }
-
-
 }

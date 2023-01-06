@@ -8,7 +8,7 @@ public class Constants {
     // General
     public static final String NOT_AVAILABLE_VALUE = "na";
     public static final String ITEM_DOES_NOT_EXIST = "not exists";
-    public static final int    NUM_OF_THREADS      = 250; // TODO - change to 250?
+    public static final int    NUM_OF_THREADS      = 250;
 
     // Column Names
     public static final String ASIN          = "asin";

@@ -233,7 +233,7 @@ public class HW2StudentAnswer implements HW2API {
     }
 
     private static void fillReviewJson(JSONObject jsonObject) {
-        for (String key : Constants.TABLE_REVIEWS_BY_USER_KEYS) {
+        for (String key : Constants.TABLES_REVIEWS_KEYS) {
             try {
                 jsonObject.get(key);
             }
@@ -241,16 +241,6 @@ public class HW2StudentAnswer implements HW2API {
                 jsonObject.put(key, Constants.NOT_AVAILABLE_VALUE);
             }
         }
-
-        for (String key : Constants.TABLE_REVIEWS_BY_ITEM_KEYS) {
-            try {
-                jsonObject.get(key);
-            }
-            catch (JSONException e) {
-                jsonObject.put(key, Constants.NOT_AVAILABLE_VALUE);
-            }
-        }
-
     }
 
     private static Set<String> jsonArrayToStringSet(JSONArray jsonArray) {

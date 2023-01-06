@@ -31,9 +31,7 @@ public class Constants {
 
     public static final List<String> TABLE_ITEMS_KEYS           =
             Arrays.asList(ASIN, TITLE, IMAGE, CATEGORIES, DESCRIPTION);
-    public static final List<String> TABLE_REVIEWS_BY_ITEM_KEYS =
-            Arrays.asList(ASIN, TIME, REVIEWER_ID, REVIEWER_NAME, RATING, SUMMARY, REVIEW_TEXT);
-    public static final List<String> TABLE_REVIEWS_BY_USER_KEYS =
+    public static final List<String> TABLES_REVIEWS_KEYS =
             Arrays.asList(REVIEWER_ID, TIME, ASIN, REVIEWER_NAME, RATING, SUMMARY, REVIEW_TEXT);
 
 
